@@ -157,6 +157,34 @@
   .addph span:first-child { font-size: 1.6rem; line-height: 1; }
   @media print { .addph, .gallery .rm { display: none; } }
 
+
+  #coachpanel {
+    position: fixed; bottom: 18px; right: 18px; z-index: 60;
+    width: 370px; max-width: calc(100vw - 28px); height: 500px; max-height: 72vh;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 14px 44px rgba(61,55,51,.22); display: none; flex-direction: column; overflow: hidden;
+  }
+  #coachpanel.open { display: flex; }
+  .coachhead {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; background: var(--sage); color: #fff;
+    font-family: -apple-system, sans-serif; font-size: .9rem;
+  }
+  .coachhead button { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; line-height: 1; }
+  #coachmsgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .cmsg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: .92rem; line-height: 1.5; white-space: pre-wrap; }
+  .cmsg.you { align-self: flex-end; background: var(--b-soft); border-bottom-right-radius: 4px; }
+  .cmsg.ai { align-self: flex-start; background: var(--sage-soft); border-bottom-left-radius: 4px; }
+  .cmsg.sys { align-self: center; background: var(--accent-soft); color: #7c4531; font-size: .82rem; }
+  .coachrow { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .coachrow textarea { flex: 1; min-height: 44px; max-height: 100px; }
+  .coachrow button {
+    align-self: stretch; padding: 0 16px; border-radius: 8px; border: none;
+    background: var(--sage); color: #fff; cursor: pointer; font-family: -apple-system, sans-serif;
+  }
+  .coachnote { text-align: center; font-size: .72rem; color: var(--soft); padding: 0 10px 10px; font-family: -apple-system, sans-serif; }
+  @media print { #coachpanel { display: none !important; } }
+
   @media print {
     nav, .toolbar, .pagenav, .savestate { display: none; }
     .session { display: block !important; page-break-after: always; }
@@ -179,7 +207,7 @@
   <div class="toolbar">
     <button class="primary" onclick="saveAll(true)">Save our answers</button>
     <button onclick="exportNotes()">Download notes (.txt)</button>
-    <button onclick="coach()">✦ Get AI coaching</button>
+    <button onclick="toggleCoach()">✦ AI Coach</button>
     <button onclick="window.print()">Print</button>
   </div>
   <div class="savestate" id="savestate"></div>
@@ -490,6 +518,17 @@
   <footer>Made for two people willing to do the work. Answers stay on this device only.</footer>
 </div>
 
+
+<div id="coachpanel">
+  <div class="coachhead"><span>✦ Your coach</span><button onclick="toggleCoach()" title="Close">×</button></div>
+  <div id="coachmsgs"></div>
+  <div class="coachrow">
+    <textarea id="coachinput" placeholder="Ask the coach anything…"></textarea>
+    <button onclick="sendCoach()">Send</button>
+  </div>
+  <div class="coachnote">The coach can see the answers in the section you have open — nothing is stored on the server.</div>
+</div>
+
 <script>
 (function(){
   var KEY = 'us-workbook-v1';
@@ -664,6 +703,79 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done); else done();
     }
   };
+
+
+  // ----- built-in AI coach -----
+  var coachMsgs = [];
+  function coachContext() {
+    saveAll(false);
+    var a = document.getElementById('nameA').value.trim() || 'Partner 1';
+    var b = document.getElementById('nameB').value.trim() || 'Partner 2';
+    var sec = document.querySelector('.session.visible');
+    var title = sec.querySelector('h2') ? sec.querySelector('h2').textContent : 'the workbook';
+    var lines = ['Section: ' + title, ''];
+    sec.querySelectorAll('.prompt').forEach(function(p){
+      var q = p.querySelector('.q') ? p.querySelector('.q').textContent : 'Shared exercise';
+      lines.push('Q: ' + q);
+      var tas = p.querySelectorAll('textarea[data-k]');
+      tas.forEach(function(t){
+        var who = tas.length > 1 ? (t.closest('.b') ? b : a) : 'Together';
+        lines.push(who + ': ' + (t.value.trim() || '(no answer yet)'));
+      });
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+  function addMsg(kind, text) {
+    var m = document.createElement('div');
+    m.className = 'cmsg ' + kind; m.textContent = text;
+    document.getElementById('coachmsgs').appendChild(m);
+    m.scrollIntoView({ block: 'end' });
+    return m;
+  }
+  window.toggleCoach = function() {
+    var p = document.getElementById('coachpanel');
+    p.classList.toggle('open');
+    if (p.classList.contains('open') && !coachMsgs.length) {
+      addMsg('ai', "Hi, I'm your coach. I can see the section you two have open. Ask me anything — to reflect on your answers, help when a conversation gets stuck, or suggest what to focus on next.");
+    }
+  };
+  window.sendCoach = function() {
+    var inp = document.getElementById('coachinput');
+    var text = inp.value.trim();
+    if (!text) return;
+    inp.value = '';
+    coachMsgs.push({ role: 'user', content: text });
+    addMsg('you', text);
+    var thinking = addMsg('ai', '…');
+    fetch('/api/coach', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        messages: coachMsgs,
+        context: coachContext(),
+        passcode: (store() && store().getItem('coach-pass')) || ''
+      })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, status: r.status, d: d }; }); })
+      .then(function(res){
+        thinking.remove();
+        if (res.ok && res.d.reply) {
+          coachMsgs.push({ role: 'assistant', content: res.d.reply });
+          addMsg('ai', res.d.reply);
+        } else if (res.status === 401) {
+          var pw = prompt('Enter your coach passcode:');
+          if (pw && store()) { store().setItem('coach-pass', pw); coachMsgs.pop(); document.getElementById('coachinput').value = text; sendCoach(); }
+          else addMsg('sys', 'A passcode is needed to use the coach.');
+        } else {
+          coachMsgs.pop();
+          addMsg('sys', 'The coach is unavailable: ' + ((res.d && res.d.error) || 'unknown error'));
+        }
+      })
+      .catch(function(){ thinking.remove(); coachMsgs.pop(); addMsg('sys', 'Could not reach the coach — check your connection.'); });
+  };
+  document.getElementById('coachinput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendCoach(); }
+  });
 
   loadAll();
   renderPhotos();
