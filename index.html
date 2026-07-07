@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>David &amp; Julie — Our Workbook</title>
+<style>
+  :root {
+    --bg: #faf7f2;
+    --card: #ffffff;
+    --ink: #3d3733;
+    --soft: #8a7f74;
+    --accent: #b5654a;
+    --accent-soft: #f3e2da;
+    --sage: #7a8b6f;
+    --sage-soft: #e8ede3;
+    --border: #e8e1d8;
+    --a-color: #b5654a;
+    --b-color: #5f7d8c;
+    --b-soft: #e3ebef;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
+  header { text-align: center; padding: 40px 0 24px; }
+  header h1 { font-size: 2rem; font-weight: normal; letter-spacing: 0.5px; }
+  header p.sub { color: var(--soft); font-style: italic; margin-top: 8px; }
+
+  nav {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin: 20px 0 32px;
+  }
+  nav button {
+    font-family: inherit; font-size: 0.85rem;
+    padding: 8px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--card);
+    color: var(--soft); cursor: pointer; transition: all .15s;
+  }
+  nav button:hover { border-color: var(--accent); color: var(--accent); }
+  nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .session { display: none; animation: fadein .3s ease; }
+  .session.visible { display: block; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px; margin-bottom: 20px;
+  }
+  .card h2 { font-weight: normal; font-size: 1.4rem; margin-bottom: 4px; }
+  .card h3 { font-weight: normal; font-size: 1.1rem; color: var(--accent); margin: 22px 0 8px; }
+  .card .kicker {
+    font-family: -apple-system, sans-serif; font-size: 0.7rem;
+    text-transform: uppercase; letter-spacing: 1.5px; color: var(--soft);
+    margin-bottom: 10px;
+  }
+  .card p { margin-bottom: 12px; }
+  .card ul, .card ol { margin: 0 0 12px 22px; }
+  .card li { margin-bottom: 6px; }
+  .note {
+    background: var(--sage-soft); border-radius: 8px; padding: 14px 16px;
+    font-size: 0.92rem; margin: 14px 0; color: #4d5c44;
+  }
+  .warm {
+    background: var(--accent-soft); border-radius: 8px; padding: 14px 16px;
+    font-size: 0.92rem; margin: 14px 0; color: #7c4531;
+  }
+
+  .prompt { margin: 20px 0 26px; }
+  .prompt .q { font-size: 1.02rem; margin-bottom: 10px; }
+  .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .answers { grid-template-columns: 1fr; } }
+  .answers label {
+    display: block; font-family: -apple-system, sans-serif;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 5px;
+  }
+  .answers .a label { color: var(--a-color); }
+  .answers .b label { color: var(--b-color); }
+  textarea {
+    width: 100%; min-height: 84px; resize: vertical;
+    font-family: inherit; font-size: 0.95rem; line-height: 1.5;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: #fffdfa; color: var(--ink);
+  }
+  .answers .a textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--a-color); }
+  .answers .b textarea:focus { outline: 2px solid var(--b-soft); border-color: var(--b-color); }
+  textarea.single { min-height: 70px; }
+
+  .names { display: flex; gap: 12px; justify-content: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .names input {
+    font-family: inherit; font-size: 1rem; text-align: center;
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); width: 170px;
+  }
+  .names input#nameA { border-bottom: 3px solid var(--a-color); }
+  .names input#nameB { border-bottom: 3px solid var(--b-color); }
+
+  .toolbar { display: flex; gap: 10px; justify-content: center; margin: 8px 0 0; flex-wrap: wrap; }
+  .toolbar button {
+    font-family: -apple-system, sans-serif; font-size: 0.82rem;
+    padding: 9px 16px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card); color: var(--ink);
+  }
+  .toolbar button.primary { background: var(--sage); border-color: var(--sage); color: #fff; }
+  .toolbar button:hover { filter: brightness(0.96); }
+  .savestate { text-align: center; font-size: 0.78rem; color: var(--soft); font-family: -apple-system, sans-serif; margin-top: 6px; min-height: 1em; }
+
+  .pagenav { display: flex; justify-content: space-between; margin-top: 8px; }
+  .pagenav button {
+    font-family: inherit; font-size: 0.9rem; padding: 10px 18px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); cursor: pointer; color: var(--accent);
+  }
+  .pagenav button:hover { background: var(--accent-soft); }
+  .pagenav .spacer { flex: 1; }
+
+  .rules li { margin-bottom: 10px; }
+  .steps { counter-reset: step; list-style: none; margin-left: 0 !important; }
+  .steps li { padding-left: 36px; position: relative; margin-bottom: 12px; }
+  .steps li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 2px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-family: -apple-system, sans-serif; font-size: 0.8rem; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  footer { text-align: center; color: var(--soft); font-size: 0.82rem; margin-top: 40px; font-style: italic; }
+
+  .gallery {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px; margin: 16px 0 8px;
+  }
+  .gallery .ph {
+    position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+    background: var(--accent-soft); border: 1px solid var(--border);
+  }
+  .gallery .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gallery .ph .rm {
+    position: absolute; top: 6px; right: 6px; width: 24px; height: 24px;
+    border-radius: 50%; border: none; background: rgba(61,55,51,.65); color: #fff;
+    font-size: 14px; line-height: 24px; cursor: pointer; padding: 0;
+  }
+  .addph {
+    aspect-ratio: 1; border-radius: 10px; cursor: pointer;
+    border: 2px dashed var(--border); background: #fffdfa; color: var(--soft);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: -apple-system, sans-serif; font-size: 0.78rem; gap: 4px;
+  }
+  .addph:hover { border-color: var(--accent); color: var(--accent); }
+  .addph span:first-child { font-size: 1.6rem; line-height: 1; }
+  @media print { .addph, .gallery .rm { display: none; } }
+
+  @media print {
+    nav, .toolbar, .pagenav, .savestate { display: none; }
+    .session { display: block !important; page-break-after: always; }
+    textarea { border: 1px solid #ccc; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>David &amp; Julie</h1>
+    <p class="sub">a workbook for two people deciding, with open eyes, whether to try again</p>
+  </header>
+
+  <div class="names">
+    <input id="nameA" placeholder="Partner 1 name" value="David">
+    <input id="nameB" placeholder="Partner 2 name" value="Julie">
+  </div>
+  <div class="toolbar">
+    <button class="primary" onclick="saveAll(true)">Save our answers</button>
+    <button onclick="exportNotes()">Download notes (.txt)</button>
+    <button onclick="window.print()">Print</button>
+  </div>
+  <div class="savestate" id="savestate"></div>
+
+  <nav id="nav">
+    <button data-s="0" class="active">Start here</button>
+    <button data-s="1">1 · Trust &amp; Repair</button>
+    <button data-s="2">2 · Communication</button>
+    <button data-s="3">3 · Going Forward</button>
+    <button data-s="4">Weekly Check-in</button>
+  </nav>
+
+  <!-- ============ START HERE ============ -->
+  <section class="session visible" data-s="0">
+    <div class="card">
+      <div class="kicker">Before you begin</div>
+      <h2>How to use this workbook</h2>
+      <p>You two are doing something that takes real courage: looking honestly at a relationship that ended and asking whether it deserves another chapter. This workbook won't answer that for you — but it will help you have the conversations that will.</p>
+      <p>There are three sessions plus a recurring weekly check-in. Do <em>one session at a time</em>, ideally a week apart. Sit side by side, phones away, no time pressure. Each of you types your own answer before reading the other's.</p>
+      <h3>Ground rules (agree to these out loud first)</h3>
+      <ul class="rules">
+        <li><strong>Honesty over comfort.</strong> A kind truth now beats a painful discovery later.</li>
+        <li><strong>Listen to understand, not to rebut.</strong> When your partner shares, your first response is a question or a reflection — never a defense.</li>
+        <li><strong>The past is evidence, not a weapon.</strong> You can reference what happened; you can't use it to score points.</li>
+        <li><strong>Either of you can pause.</strong> If it gets heated, take 20 minutes apart and come back. Pausing is not quitting.</li>
+        <li><strong>No decisions mid-session.</strong> Big conclusions ("so we're back together" or "this proves it's over") wait at least a day.</li>
+      </ul>
+      <div class="note"><strong>A word about therapy:</strong> this workbook is a starting point, not a substitute. If you work through it and want to keep going — or if any session touches something too heavy to handle alone — a couples therapist is the right next step. Many offer online sessions, and starting this workbook first means you'll arrive knowing exactly what you want to work on.</div>
+      <div class="warm"><strong>Save your work:</strong> answers save automatically in this browser, but browsers can clear data — click <em>Download notes</em> after each session to keep a copy.</div>
+    </div>
+    <div class="card">
+      <div class="kicker">The evidence</div>
+      <h2>What you're working for</h2>
+      <p>Your names written in the sand, the love lock, the matching LA caps, the Oregon coast, the birthday sparkler, holding hands on a road trip — you two have a real record of being happy together. Keep it visible. When the sessions get hard (they will), scroll back here and remember what the work is for.</p>
+      <div class="gallery" id="gallery">
+        <div class="ph static"><img src="photos/photo_01.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_02.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_03.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_04.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_05.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_06.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_07.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_08.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_09.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_10.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_11.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_12.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_13.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_14.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_15.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_16.jpg" alt="David & Julie" loading="lazy"></div>
+        <div class="ph static"><img src="photos/photo_17.jpg" alt="David & Julie" loading="lazy"></div>
+        <button class="addph" onclick="document.getElementById('phinput').click()"><span>+</span><span>Add a photo</span></button>
+      </div>
+      <input type="file" id="phinput" accept="image/*" multiple style="display:none">
+      <p style="font-size:.85rem;color:var(--soft)">Photos are stored only in this browser, next to your answers.</p>
+    </div>
+    <div class="card">
+      <div class="kicker">Warm-up · 10 minutes</div>
+      <h2>Why are we here?</h2>
+      <div class="prompt">
+        <p class="q">In one or two sentences: why do you want to explore getting back together? (Not "why did we break up" — that comes later. Why are you <em>here</em>, now?)</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s0q1a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s0q1b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">What's one thing you're afraid of in doing this?</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s0q2a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s0q2b"></textarea></div>
+        </div>
+      </div>
+      <p>Read each other's answers. Don't discuss yet — just say "thank you for telling me." That's the whole warm-up.</p>
+    </div>
+    <div class="pagenav"><span class="spacer"></span><button onclick="go(1)">Session 1: Trust &amp; Repair →</button></div>
+  </section>
+
+  <!-- ============ SESSION 1: TRUST ============ -->
+  <section class="session" data-s="1">
+    <div class="card">
+      <div class="kicker">Session 1 · 60–90 minutes</div>
+      <h2>Trust &amp; Repair</h2>
+      <p>Trust isn't rebuilt by promising harder. It's rebuilt by naming exactly what broke, taking ownership without excuses, and then behaving differently in small, boring, repeated ways. This session is about the naming and the owning.</p>
+    </div>
+
+    <div class="card">
+      <h3>Part 1 — Naming the hurt</h3>
+      <p>Each of you answers privately first. Use "I" statements: "I felt ___ when ___" rather than "You always ___."</p>
+      <div class="prompt">
+        <p class="q">What hurt you most in our relationship? Be specific — one or two moments or patterns, not a general grievance.</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s1q1a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s1q1b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">What do you think <em>you</em> did that hurt your partner most? (Answer before reading theirs. The gap between your two answers is important information.)</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s1q2a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s1q2b"></textarea></div>
+        </div>
+      </div>
+      <div class="note">Now trade and read. Then each of you takes a turn saying, out loud, what you read in your partner's answer — in your own words, without defending yourself. Keep going until your partner says "yes, that's it, you understand." This step matters more than anything you typed.</div>
+    </div>
+
+    <div class="card">
+      <h3>Part 2 — Ownership</h3>
+      <div class="prompt">
+        <p class="q">Complete this, out loud and then in writing: "I'm sorry that I ___. It was not okay because ___. What I want to do differently is ___." No "but," no "because you," no explanation of your intentions.</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s1q3a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s1q3b"></textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Part 3 — What trust needs to grow back</h3>
+      <div class="prompt">
+        <p class="q">What specific, observable behavior would help you trust your partner again? ("Communicate better" is too vague. "Text me if plans change" is observable.)</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s1q4a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s1q4b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">And honestly: is there anything you're not sure you <em>can</em> forgive or change? It's better to name it now.</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s1q5a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s1q5b"></textarea></div>
+        </div>
+      </div>
+      <div class="warm">End the session here even if it went well. Do something easy together — a walk, food, a show. Let it settle for a few days before Session 2.</div>
+    </div>
+    <div class="pagenav"><button onclick="go(0)">← Start</button><button onclick="go(2)">Session 2: Communication →</button></div>
+  </section>
+
+  <!-- ============ SESSION 2: COMMUNICATION ============ -->
+  <section class="session" data-s="2">
+    <div class="card">
+      <div class="kicker">Session 2 · 60–90 minutes</div>
+      <h2>Communication</h2>
+      <p>Most couples don't break up over what they fought about — they break up over <em>how</em> they fought, or how they stopped talking at all. This session maps your patterns and gives you two concrete tools.</p>
+    </div>
+
+    <div class="card">
+      <h3>Part 1 — Our pattern</h3>
+      <p>Researchers who study couples find the biggest predictors of breakdown are criticism ("you always"), contempt (eye-rolling, mockery), defensiveness ("that's not what I did"), and stonewalling (shutting down, going silent). Almost every couple does some of these under stress.</p>
+      <div class="prompt">
+        <p class="q">When we argued, what was <em>your</em> go-to move — criticize, get defensive, go cold, get sarcastic, leave, something else? (Describe your own behavior, not your partner's.)</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s2q1a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s2q1b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">Describe one recurring argument we kept having. What do you think it was <em>actually</em> about, underneath?</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s2q2a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s2q2b"></textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Part 2 — Tool: the speaker–listener exercise</h3>
+      <p>Practice this now with a low-stakes topic (something that bothers you a little, not your biggest wound):</p>
+      <ol class="steps">
+        <li><strong>Speaker</strong> talks for 2 minutes max, using "I feel ___ when ___ because I need ___."</li>
+        <li><strong>Listener</strong> repeats back the gist: "What I hear is…" — no defending, no fixing.</li>
+        <li>Speaker corrects or confirms. Repeat until the speaker says "yes, that's it."</li>
+        <li>Swap roles.</li>
+      </ol>
+      <div class="prompt">
+        <p class="q">After trying it: what was hard about being the listener?</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s2q3a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s2q3b"></textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Part 3 — Tool: repair attempts</h3>
+      <p>A "repair attempt" is anything that de-escalates a fight — a touch, a joke, "can we start over?", "I'm on your team." Couples that last aren't the ones who never fight; they're the ones whose repair attempts get <em>accepted</em>.</p>
+      <div class="prompt">
+        <p class="q">What could your partner say or do mid-argument that would actually reach you? And what's a repair attempt of yours that they may have missed before?</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s2q4a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s2q4b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">Agree on one shared "pause signal" — a word or gesture either of you can use when a conversation is going off the rails, meaning "20-minute break, then we come back." Write it here:</p>
+        <div class="answers" style="grid-template-columns: 1fr;">
+          <div class="a"><label>Our pause signal</label><textarea class="single" data-k="s2q5"></textarea></div>
+        </div>
+      </div>
+    </div>
+    <div class="pagenav"><button onclick="go(1)">← Session 1</button><button onclick="go(3)">Session 3: Going Forward →</button></div>
+  </section>
+
+  <!-- ============ SESSION 3: GOING FORWARD ============ -->
+  <section class="session" data-s="3">
+    <div class="card">
+      <div class="kicker">Session 3 · 60–90 minutes</div>
+      <h2>Being the Right Partners for Each Other</h2>
+      <p>Love wasn't your problem — most couples who break up still love each other. The question is fit: can you each give what the other needs, without abandoning yourselves to do it? This session is where you find out.</p>
+    </div>
+
+    <div class="card">
+      <h3>Part 1 — What I need</h3>
+      <div class="prompt">
+        <p class="q">What are your top three needs in a relationship? (Examples: affection, independence, reliability, adventure, feeling prioritized, physical intimacy, calm, ambition.) Which of these went unmet before?</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s3q1a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s3q1b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">What does your partner need that is genuinely hard for you to give? Be honest — this question only works if you are.</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s3q2a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s3q2b"></textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Part 2 — What's actually different now</h3>
+      <div class="prompt">
+        <p class="q">Getting back together only works if something has changed — in you, in them, or in circumstances. What is concretely different now compared to when we broke up? (If the honest answer is "nothing yet," say so.)</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s3q3a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s3q3b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">Picture us a year from now, together and doing well. What does an ordinary Tuesday look like? (Where do we live, how do we spend evenings, how do we handle stress?)</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea data-k="s3q4a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea data-k="s3q4b"></textarea></div>
+        </div>
+      </div>
+      <div class="note">Compare your two Tuesdays. Differences aren't dealbreakers — but they need to be discussable. Flag anything that feels like a values gap (kids, location, money, family, lifestyle) rather than a preference gap.</div>
+    </div>
+
+    <div class="card">
+      <h3>Part 3 — Our agreement</h3>
+      <p>If you both want to keep going, don't just drift back together. Write a short trial agreement, together, in one box:</p>
+      <ul>
+        <li>What we're calling this (dating again? a trial period? undefined but exploring?)</li>
+        <li>Two or three specific behaviors we're each committing to (from Session 1, Part 3)</li>
+        <li>When we'll check in on how it's going (suggestion: every week, using the check-in tab)</li>
+        <li>What would tell us it isn't working — and how we'd end it kindly if so</li>
+      </ul>
+      <div class="prompt">
+        <div class="answers" style="grid-template-columns: 1fr;">
+          <div class="a"><label>Our agreement (written together)</label><textarea style="min-height:140px" data-k="s3q5"></textarea></div>
+        </div>
+      </div>
+      <div class="warm"><strong>If you're unsure:</strong> that's a legitimate outcome. Unsure means "gather more evidence" — use the weekly check-ins for a month, then revisit. And if these sessions surfaced things too big to handle alone, that's not failure; that's exactly the moment to bring in a couples therapist.</div>
+    </div>
+    <div class="pagenav"><button onclick="go(2)">← Session 2</button><button onclick="go(4)">Weekly Check-in →</button></div>
+  </section>
+
+  <!-- ============ WEEKLY CHECK-IN ============ -->
+  <section class="session" data-s="4">
+    <div class="card">
+      <div class="kicker">Recurring · 20–30 minutes, once a week</div>
+      <h2>Weekly Check-in</h2>
+      <p>Same time each week, ideally somewhere pleasant. Four questions each, then done. Download your notes afterward if you want a running record — this page holds one week at a time.</p>
+      <div class="prompt">
+        <p class="q">1. One thing you did this week that I appreciated:</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea class="single" data-k="w1a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea class="single" data-k="w1b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">2. One moment I felt distant from you, and what was going on for me:</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea class="single" data-k="w2a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea class="single" data-k="w2b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">3. How are we doing on our commitments from the agreement? (Honest score, 1–10, and why.)</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea class="single" data-k="w3a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea class="single" data-k="w3b"></textarea></div>
+        </div>
+      </div>
+      <div class="prompt">
+        <p class="q">4. One thing I need more of (or less of) next week:</p>
+        <div class="answers">
+          <div class="a"><label class="lblA">Partner 1</label><textarea class="single" data-k="w4a"></textarea></div>
+          <div class="b"><label class="lblB">Partner 2</label><textarea class="single" data-k="w4b"></textarea></div>
+        </div>
+      </div>
+      <p>Close every check-in the same way: each of you names one thing you're looking forward to together next week.</p>
+    </div>
+    <div class="pagenav"><button onclick="go(3)">← Session 3</button><span class="spacer"></span></div>
+  </section>
+
+  <footer>Made for two people willing to do the work. Answers stay on this device only.</footer>
+</div>
+
+<script>
+(function(){
+  var KEY = 'us-workbook-v1';
+  var mem = {};
+  function store() {
+    try { return window.localStorage; } catch(e) { return null; }
+  }
+  function loadAll() {
+    var s = store(), data = mem;
+    if (s) { try { data = JSON.parse(s.getItem(KEY) || '{}'); } catch(e) { data = {}; } }
+    mem = data;
+    document.querySelectorAll('textarea[data-k]').forEach(function(t){
+      if (data[t.dataset.k]) t.value = data[t.dataset.k];
+    });
+    if (data.__nameA) document.getElementById('nameA').value = data.__nameA;
+    if (data.__nameB) document.getElementById('nameB').value = data.__nameB;
+    updateNames();
+  }
+  window.saveAll = function(announce) {
+    document.querySelectorAll('textarea[data-k]').forEach(function(t){ mem[t.dataset.k] = t.value; });
+    mem.__nameA = document.getElementById('nameA').value;
+    mem.__nameB = document.getElementById('nameB').value;
+    var s = store(), el = document.getElementById('savestate');
+    if (s) { try { s.setItem(KEY, JSON.stringify(mem)); } catch(e) {} }
+    if (announce) {
+      el.textContent = s ? 'Saved on this device · ' + new Date().toLocaleTimeString()
+                         : 'Saved for this visit only — use Download notes to keep a copy';
+      setTimeout(function(){ el.textContent = ''; }, 4000);
+    }
+  };
+  function updateNames() {
+    var a = document.getElementById('nameA').value.trim() || 'Partner 1';
+    var b = document.getElementById('nameB').value.trim() || 'Partner 2';
+    document.querySelectorAll('.lblA').forEach(function(l){ l.textContent = a; });
+    document.querySelectorAll('.lblB').forEach(function(l){ l.textContent = b; });
+  }
+  window.go = function(n) {
+    document.querySelectorAll('.session').forEach(function(sec){
+      sec.classList.toggle('visible', sec.dataset.s == n);
+    });
+    document.querySelectorAll('nav button').forEach(function(btn){
+      btn.classList.toggle('active', btn.dataset.s == n);
+    });
+    window.scrollTo({top: 0, behavior: 'smooth'});
+    saveAll(false);
+  };
+  document.getElementById('nav').addEventListener('click', function(e){
+    if (e.target.dataset.s !== undefined) go(e.target.dataset.s);
+  });
+  document.addEventListener('input', function(e){
+    if (e.target.matches('textarea[data-k]')) saveAll(false);
+    if (e.target.id === 'nameA' || e.target.id === 'nameB') { updateNames(); saveAll(false); }
+  });
+  window.exportNotes = function() {
+    saveAll(false);
+    var a = document.getElementById('nameA').value.trim() || 'Partner 1';
+    var b = document.getElementById('nameB').value.trim() || 'Partner 2';
+    var lines = ['US — RELATIONSHIP WORKBOOK NOTES', 'Exported ' + new Date().toLocaleString(), ''];
+    document.querySelectorAll('.session').forEach(function(sec){
+      var title = sec.querySelector('h2') ? sec.querySelector('h2').textContent : '';
+      var any = false, buf = ['', '======== ' + title.toUpperCase() + ' ========'];
+      sec.querySelectorAll('.prompt').forEach(function(p){
+        var q = p.querySelector('.q') ? p.querySelector('.q').textContent : '(shared)';
+        var parts = [];
+        p.querySelectorAll('textarea[data-k]').forEach(function(t){
+          if (!t.value.trim()) return;
+          var who = t.closest('.b') ? b : (t.closest('.a') && p.querySelectorAll('textarea').length > 1 ? a : '');
+          parts.push((who ? who + ': ' : '') + t.value.trim());
+        });
+        if (parts.length) { any = true; buf.push('', 'Q: ' + q); parts.forEach(function(x){ buf.push('   ' + x); }); }
+      });
+      if (any) lines = lines.concat(buf);
+    });
+    var blob = new Blob([lines.join('\n')], {type: 'text/plain'});
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url; link.download = 'our-workbook-notes.txt';
+    document.body.appendChild(link); link.click();
+    document.body.removeChild(link); URL.revokeObjectURL(url);
+  };
+  // ----- photo gallery -----
+  var PKEY = 'us-workbook-photos-v1';
+  function photoStore() {
+    var s = store();
+    if (!s) return null;
+    return s;
+  }
+  function getPhotos() {
+    var s = photoStore();
+    if (!s) return window.__photos || [];
+    try { return JSON.parse(s.getItem(PKEY) || '[]'); } catch(e) { return []; }
+  }
+  function setPhotos(list) {
+    var s = photoStore();
+    if (s) {
+      try { s.setItem(PKEY, JSON.stringify(list)); }
+      catch(e) { alert('That photo pushed past the browser storage limit — it will show now but may not persist. Try removing one first.'); }
+    }
+    window.__photos = list;
+  }
+  function renderPhotos() {
+    var g = document.getElementById('gallery');
+    if (!g) return;
+    g.querySelectorAll('.ph:not(.static)').forEach(function(n){ n.remove(); });
+    var addBtn = g.querySelector('.addph');
+    getPhotos().forEach(function(src, i){
+      var d = document.createElement('div');
+      d.className = 'ph';
+      var img = document.createElement('img');
+      img.src = src; img.alt = 'Our photo';
+      var rm = document.createElement('button');
+      rm.className = 'rm'; rm.textContent = '×'; rm.title = 'Remove';
+      rm.onclick = function(){ var l = getPhotos(); l.splice(i,1); setPhotos(l); renderPhotos(); };
+      d.appendChild(img); d.appendChild(rm);
+      g.insertBefore(d, addBtn);
+    });
+  }
+  document.getElementById('phinput').addEventListener('change', function(e){
+    Array.prototype.forEach.call(e.target.files, function(file){
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        var img = new Image();
+        img.onload = function(){
+          var max = 700, w = img.width, h = img.height;
+          var scale = Math.min(1, max / Math.max(w, h));
+          var c = document.createElement('canvas');
+          c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          var l = getPhotos();
+          l.push(c.toDataURL('image/jpeg', 0.72));
+          setPhotos(l); renderPhotos();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
+
+  loadAll();
+  renderPhotos();
+})();
+</script>
+</body>
+</html>
