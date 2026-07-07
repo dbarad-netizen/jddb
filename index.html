@@ -179,6 +179,7 @@
   <div class="toolbar">
     <button class="primary" onclick="saveAll(true)">Save our answers</button>
     <button onclick="exportNotes()">Download notes (.txt)</button>
+    <button onclick="coach()">✦ Get AI coaching</button>
     <button onclick="window.print()">Print</button>
   </div>
   <div class="savestate" id="savestate"></div>
@@ -627,6 +628,42 @@
     });
     e.target.value = '';
   });
+
+  window.coach = function() {
+    saveAll(false);
+    var a = document.getElementById('nameA').value.trim() || 'Partner 1';
+    var b = document.getElementById('nameB').value.trim() || 'Partner 2';
+    var sec = document.querySelector('.session.visible');
+    var title = sec.querySelector('h2') ? sec.querySelector('h2').textContent : 'the workbook';
+    var lines = [
+      'You are a warm, direct couples coach. ' + a + ' and ' + b + ' are an ex-couple thoughtfully exploring whether to get back together, using a structured workbook. They are reading your reply together, side by side.',
+      'They are currently on the section: "' + title + '". Their answers so far:', ''
+    ];
+    var any = false;
+    sec.querySelectorAll('.prompt').forEach(function(p){
+      var q = p.querySelector('.q') ? p.querySelector('.q').textContent : 'Shared exercise';
+      lines.push('Q: ' + q);
+      var tas = p.querySelectorAll('textarea[data-k]');
+      tas.forEach(function(t){
+        var who = tas.length > 1 ? (t.closest('.b') ? b : a) : 'Together';
+        var v = t.value.trim();
+        if (v) any = true;
+        lines.push(who + ': ' + (v || '(no answer yet)'));
+      });
+      lines.push('');
+    });
+    lines.push(any
+      ? 'Please: (1) reflect back what you notice — patterns, meaningful gaps between their two answers, and genuine strengths; (2) ask 2-3 gentle follow-up questions for them to discuss out loud; (3) suggest one small, concrete practice for the coming week. Do not deliver a verdict on whether they should get back together — that decision is theirs. Be warm but honest.'
+      : 'They have not filled in answers yet. Briefly coach them on how to get the most out of this section, and what to watch out for.');
+    var text = lines.join('\n');
+    var url = 'https://claude.ai/new?q=' + encodeURIComponent(text);
+    if (url.length < 7000) {
+      window.open(url, '_blank');
+    } else {
+      var done = function(){ alert('Your answers were copied to the clipboard — paste them into the Claude chat that just opened.'); window.open('https://claude.ai/new', '_blank'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done); else done();
+    }
+  };
 
   loadAll();
   renderPhotos();
