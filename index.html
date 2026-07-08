@@ -214,6 +214,7 @@
     <button onclick="exportNotes()">Download notes (.txt)</button>
     <button onclick="toggleCoach()">✦ AI Coach</button>
     <button onclick="window.print()">Print</button>
+    <button id="syncchip" data-state="off" onclick="setupSync()">☁ Sync: off</button>
   </div>
   <div class="savestate" id="savestate"></div>
 
@@ -241,7 +242,7 @@
         <li><strong>No decisions mid-session.</strong> Big conclusions ("so we're back together" or "this proves it's over") wait at least a day.</li>
       </ul>
       <div class="note"><strong>A word about therapy:</strong> this workbook is a starting point, not a substitute. If you work through it and want to keep going — or if any session touches something too heavy to handle alone — a couples therapist is the right next step. Many offer online sessions, and starting this workbook first means you'll arrive knowing exactly what you want to work on.</div>
-      <div class="warm"><strong>Save your work:</strong> answers save automatically in this browser, but browsers can clear data — click <em>Download notes</em> after each session to keep a copy.</div>
+      <div class="warm"><strong>Save your work:</strong> answers save automatically, and if you turn on ☁ Sync (top of page) you and your partner will see the same answers on every device — protected by a shared passphrase that encrypts everything before it leaves your device. Click <em>Download notes</em> after each session for an extra backup.</div>
     </div>
     <div class="card">
       <div class="kicker">The evidence</div>
@@ -520,7 +521,7 @@
     <div class="pagenav"><button onclick="go(3)">← Session 3</button><span class="spacer"></span></div>
   </section>
 
-  <footer>Made for two people willing to do the work. Answers stay on this device only.</footer>
+  <footer>Made for two people willing to do the work. Answers are encrypted before they leave this device.</footer>
 </div>
 
 
@@ -584,8 +585,8 @@
     if (e.target.dataset.s !== undefined) go(e.target.dataset.s);
   });
   document.addEventListener('input', function(e){
-    if (e.target.matches('textarea[data-k]')) saveAll(false);
-    if (e.target.id === 'nameA' || e.target.id === 'nameB') { updateNames(); saveAll(false); }
+    if (e.target.matches('textarea[data-k]')) { saveAll(false); queuePush(e.target.dataset.k); }
+    if (e.target.id === 'nameA' || e.target.id === 'nameB') { updateNames(); saveAll(false); queuePush(e.target.id === 'nameA' ? '__nameA' : '__nameB'); }
   });
   window.exportNotes = function() {
     saveAll(false);
@@ -709,6 +710,145 @@
     }
   };
 
+
+
+  // ----- encrypted cloud sync (Supabase) -----
+  var SUPA_URL = 'https://xazmwpozsmbrqoulizyn.supabase.co';
+  var SUPA_KEY = 'sb_publishable_nxpCXX6gQ8ZOWjFGdgFi3A_hcfOxoSY';
+  var syncKey = null, roomId = null, dirtyKeys = {}, pushTimer = null, seen = {};
+  function supaHeaders() {
+    return { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' };
+  }
+  function b64(buf) {
+    var s = '', u = new Uint8Array(buf);
+    for (var i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
+    return btoa(s);
+  }
+  function unb64(s) {
+    var bin = atob(s), u = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+  function deriveSync(pass) {
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey', 'deriveBits'])
+      .then(function(base) {
+        return Promise.all([
+          crypto.subtle.deriveKey({ name: 'PBKDF2', salt: enc.encode('us-workbook-salt-v1'), iterations: 150000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']),
+          crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode('us-workbook-room-v1'), iterations: 150000, hash: 'SHA-256' }, base, 256)
+        ]);
+      }).then(function(r) {
+        syncKey = r[0];
+        roomId = Array.prototype.map.call(new Uint8Array(r[1]), function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+      });
+  }
+  function encVal(text) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, syncKey, new TextEncoder().encode(text))
+      .then(function(ct) {
+        var out = new Uint8Array(12 + ct.byteLength);
+        out.set(iv); out.set(new Uint8Array(ct), 12);
+        return b64(out.buffer);
+      });
+  }
+  function decVal(s) {
+    var u = unb64(s);
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.subarray(0, 12) }, syncKey, u.subarray(12))
+      .then(function(pt) { return new TextDecoder().decode(pt); });
+  }
+  function syncChip(state, label) {
+    var c = document.getElementById('syncchip');
+    if (c) { c.textContent = label; c.dataset.state = state; }
+  }
+  function loadSeen() { try { seen = JSON.parse((store() && store().getItem('us-sync-seen')) || '{}'); } catch(e) { seen = {}; } }
+  function saveSeen() { if (store()) try { store().setItem('us-sync-seen', JSON.stringify(seen)); } catch(e) {} }
+  function queuePush(key) {
+    if (!syncKey) return;
+    dirtyKeys[key] = true;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushDirty, 1200);
+  }
+  function pushDirty() {
+    if (!syncKey) return;
+    var keys = Object.keys(dirtyKeys);
+    if (!keys.length) return;
+    dirtyKeys = {};
+    var now = new Date().toISOString();
+    Promise.all(keys.map(function(k) {
+      return encVal(mem[k] || '').then(function(v) { return { room_id: roomId, key: k, value: v, updated_at: now }; });
+    })).then(function(rows) {
+      return fetch(SUPA_URL + '/rest/v1/workbook_sync', {
+        method: 'POST',
+        headers: Object.assign(supaHeaders(), { 'Prefer': 'resolution=merge-duplicates' }),
+        body: JSON.stringify(rows)
+      });
+    }).then(function(r) {
+      if (r.ok) { keys.forEach(function(k){ seen[k] = now; }); saveSeen(); syncChip('on', '☁ Synced'); }
+      else { keys.forEach(function(k){ dirtyKeys[k] = true; }); syncChip('err', '☁ Sync error — will retry'); }
+    }).catch(function() {
+      keys.forEach(function(k){ dirtyKeys[k] = true; });
+      syncChip('err', '☁ Offline — will retry');
+    });
+  }
+  function pullRemote() {
+    if (!syncKey) return Promise.resolve();
+    return fetch(SUPA_URL + '/rest/v1/workbook_sync?room_id=eq.' + roomId + '&select=key,value,updated_at', { headers: supaHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(rows) {
+        if (!Array.isArray(rows)) return;
+        var applied = 0;
+        return Promise.all(rows.map(function(row) {
+          if (seen[row.key] && row.updated_at <= seen[row.key]) return null;
+          return decVal(row.value).then(function(text) {
+            seen[row.key] = row.updated_at;
+            if ((mem[row.key] || '') === text) return;
+            var el = document.querySelector('textarea[data-k="' + row.key + '"]');
+            if (el && document.activeElement === el) return; // don't clobber active typing
+            mem[row.key] = text;
+            if (el) el.value = text;
+            if (row.key === '__nameA') { document.getElementById('nameA').value = text; updateNames(); }
+            if (row.key === '__nameB') { document.getElementById('nameB').value = text; updateNames(); }
+            applied++;
+          }).catch(function(){ /* different passphrase used at some point; skip */ });
+        })).then(function() {
+          saveSeen();
+          if (applied) { saveAll(false); }
+          syncChip('on', '☁ Synced');
+        });
+      }).catch(function(){ syncChip('err', '☁ Offline'); });
+  }
+  window.setupSync = function() {
+    var existing = (store() && store().getItem('us-sync-pass')) || '';
+    var msg = existing
+      ? 'Sync is on. Enter a new passphrase to switch rooms, or leave blank to turn sync OFF on this device:'
+      : 'Choose a shared passphrase. You and your partner must enter the SAME passphrase on each device — it is the key to your shared answers, so make it long and memorable (e.g. three or four words):';
+    var pass = prompt(msg);
+    if (pass === null) return;
+    pass = pass.trim();
+    if (!pass) {
+      if (store()) store().removeItem('us-sync-pass');
+      syncKey = null; roomId = null;
+      syncChip('off', '☁ Sync: off');
+      return;
+    }
+    if (store()) try { store().setItem('us-sync-pass', pass); } catch(e) {}
+    syncChip('on', '☁ Connecting…');
+    deriveSync(pass).then(function() {
+      seen = {}; saveSeen();
+      return pullRemote();
+    }).then(function() {
+      Object.keys(mem).forEach(function(k) { if (k !== '__photos') dirtyKeys[k] = true; });
+      pushDirty();
+    });
+  };
+  (function initSync() {
+    loadSeen();
+    var pass = (store() && store().getItem('us-sync-pass')) || '';
+    if (pass) {
+      deriveSync(pass).then(function() { pullRemote(); });
+    }
+    setInterval(function() { if (syncKey) pullRemote(); }, 15000);
+  })();
 
   // ----- built-in AI coach -----
   var coachMsgs = [];
