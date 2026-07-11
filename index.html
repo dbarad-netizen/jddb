@@ -269,7 +269,7 @@
         <button class="addph" onclick="document.getElementById('phinput').click()"><span>+</span><span>Add a photo</span></button>
       </div>
       <input type="file" id="phinput" accept="image/*" multiple style="display:none">
-      <p style="font-size:.85rem;color:var(--soft)">Photos are stored only in this browser, next to your answers.</p>
+      <p style="font-size:.85rem;color:var(--soft)">Photos you add here sync between your devices, encrypted like your answers.</p>
     </div>
     <div class="card">
       <div class="kicker">Warm-up · 10 minutes</div>
@@ -615,42 +615,39 @@
     document.body.appendChild(link); link.click();
     document.body.removeChild(link); URL.revokeObjectURL(url);
   };
-  // ----- photo gallery -----
-  var PKEY = 'us-workbook-photos-v1';
-  function photoStore() {
-    var s = store();
-    if (!s) return null;
-    return s;
-  }
-  function getPhotos() {
-    var s = photoStore();
-    if (!s) return window.__photos || [];
-    try { return JSON.parse(s.getItem(PKEY) || '[]'); } catch(e) { return []; }
-  }
-  function setPhotos(list) {
-    var s = photoStore();
-    if (s) {
-      try { s.setItem(PKEY, JSON.stringify(list)); }
-      catch(e) { alert('That photo pushed past the browser storage limit — it will show now but may not persist. Try removing one first.'); }
-    }
-    window.__photos = list;
+  // ----- photo gallery (synced) -----
+  var PKEY_LEGACY = 'us-workbook-photos-v1';
+  function migrateLegacyPhotos() {
+    var s = store(); if (!s) return;
+    try {
+      var old = JSON.parse(s.getItem(PKEY_LEGACY) || '[]');
+      old.forEach(function(src, i){
+        var k = 'ph_migr_' + i;
+        if (!mem[k]) { mem[k] = src; dirtyKeys[k] = true; }
+      });
+      if (old.length) {
+        s.removeItem(PKEY_LEGACY); saveAll(false);
+        clearTimeout(pushTimer); pushTimer = setTimeout(pushDirty, 1500);
+      }
+    } catch(e) {}
   }
   function renderPhotos() {
     var g = document.getElementById('gallery');
     if (!g) return;
     g.querySelectorAll('.ph:not(.static)').forEach(function(n){ n.remove(); });
     var addBtn = g.querySelector('.addph');
-    getPhotos().forEach(function(src, i){
-      var d = document.createElement('div');
-      d.className = 'ph';
-      var img = document.createElement('img');
-      img.src = src; img.alt = 'Our photo';
-      var rm = document.createElement('button');
-      rm.className = 'rm'; rm.textContent = '×'; rm.title = 'Remove';
-      rm.onclick = function(){ var l = getPhotos(); l.splice(i,1); setPhotos(l); renderPhotos(); };
-      d.appendChild(img); d.appendChild(rm);
-      g.insertBefore(d, addBtn);
-    });
+    Object.keys(mem).filter(function(k){ return k.indexOf('ph_') === 0 && mem[k]; }).sort()
+      .forEach(function(k){
+        var d = document.createElement('div');
+        d.className = 'ph';
+        var img = document.createElement('img');
+        img.src = mem[k]; img.alt = 'Our photo';
+        var rm = document.createElement('button');
+        rm.className = 'rm'; rm.textContent = '\u00d7'; rm.title = 'Remove';
+        rm.onclick = function(){ mem[k] = ''; saveAll(false); queuePush(k); renderPhotos(); };
+        d.appendChild(img); d.appendChild(rm);
+        g.insertBefore(d, addBtn);
+      });
   }
   document.getElementById('phinput').addEventListener('change', function(e){
     Array.prototype.forEach.call(e.target.files, function(file){
@@ -658,14 +655,14 @@
       reader.onload = function(ev){
         var img = new Image();
         img.onload = function(){
-          var max = 700, w = img.width, h = img.height;
+          var max = 600, w = img.width, h = img.height;
           var scale = Math.min(1, max / Math.max(w, h));
           var c = document.createElement('canvas');
           c.width = Math.round(w * scale); c.height = Math.round(h * scale);
           c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          var l = getPhotos();
-          l.push(c.toDataURL('image/jpeg', 0.72));
-          setPhotos(l); renderPhotos();
+          var k = 'ph_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+          mem[k] = c.toDataURL('image/jpeg', 0.65);
+          saveAll(false); queuePush(k); renderPhotos();
         };
         img.src = ev.target.result;
       };
@@ -673,44 +670,6 @@
     });
     e.target.value = '';
   });
-
-  window.coach = function() {
-    saveAll(false);
-    var a = document.getElementById('nameA').value.trim() || 'Partner 1';
-    var b = document.getElementById('nameB').value.trim() || 'Partner 2';
-    var sec = document.querySelector('.session.visible');
-    var title = sec.querySelector('h2') ? sec.querySelector('h2').textContent : 'the workbook';
-    var lines = [
-      'You are a warm, direct couples coach. ' + a + ' and ' + b + ' are an ex-couple thoughtfully exploring whether to get back together, using a structured workbook. They are reading your reply together, side by side.',
-      'They are currently on the section: "' + title + '". Their answers so far:', ''
-    ];
-    var any = false;
-    sec.querySelectorAll('.prompt').forEach(function(p){
-      var q = p.querySelector('.q') ? p.querySelector('.q').textContent : 'Shared exercise';
-      lines.push('Q: ' + q);
-      var tas = p.querySelectorAll('textarea[data-k]');
-      tas.forEach(function(t){
-        var who = tas.length > 1 ? (t.closest('.b') ? b : a) : 'Together';
-        var v = t.value.trim();
-        if (v) any = true;
-        lines.push(who + ': ' + (v || '(no answer yet)'));
-      });
-      lines.push('');
-    });
-    lines.push(any
-      ? 'Please: (1) reflect back what you notice — patterns, meaningful gaps between their two answers, and genuine strengths; (2) ask 2-3 gentle follow-up questions for them to discuss out loud; (3) suggest one small, concrete practice for the coming week. Do not deliver a verdict on whether they should get back together — that decision is theirs. Be warm but honest.'
-      : 'They have not filled in answers yet. Briefly coach them on how to get the most out of this section, and what to watch out for.');
-    var text = lines.join('\n');
-    var url = 'https://claude.ai/new?q=' + encodeURIComponent(text);
-    if (url.length < 7000) {
-      window.open(url, '_blank');
-    } else {
-      var done = function(){ alert('Your answers were copied to the clipboard — paste them into the Claude chat that just opened.'); window.open('https://claude.ai/new', '_blank'); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done); else done();
-    }
-  };
-
-
 
   // ----- encrypted cloud sync (Supabase) -----
   var SUPA_URL = 'https://xazmwpozsmbrqoulizyn.supabase.co';
@@ -812,7 +771,7 @@
           }).catch(function(){ /* different passphrase used at some point; skip */ });
         })).then(function() {
           saveSeen();
-          if (applied) { saveAll(false); }
+          if (applied) { saveAll(false); renderPhotos(); }
           syncChip('on', '☁ Synced');
         });
       }).catch(function(){ syncChip('err', '☁ Offline'); });
@@ -934,6 +893,7 @@
   });
 
   loadAll();
+  migrateLegacyPhotos();
   renderPhotos();
 })();
 </script>
