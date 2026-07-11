@@ -214,7 +214,7 @@
     <button onclick="exportNotes()">Download notes (.txt)</button>
     <button onclick="toggleCoach()">✦ AI Coach</button>
     <button onclick="window.print()">Print</button>
-    <button id="syncchip" data-state="off" onclick="setupSync()">☁ Sync: off</button>
+    <button id="syncchip" data-state="off" onclick="setupSync()">☁ Sync</button>
   </div>
   <div class="savestate" id="savestate"></div>
 
@@ -242,7 +242,7 @@
         <li><strong>No decisions mid-session.</strong> Big conclusions ("so we're back together" or "this proves it's over") wait at least a day.</li>
       </ul>
       <div class="note"><strong>A word about therapy:</strong> this workbook is a starting point, not a substitute. If you work through it and want to keep going — or if any session touches something too heavy to handle alone — a couples therapist is the right next step. Many offer online sessions, and starting this workbook first means you'll arrive knowing exactly what you want to work on.</div>
-      <div class="warm"><strong>Save your work:</strong> answers save automatically, and if you turn on ☁ Sync (top of page) you and your partner will see the same answers on every device — protected by a shared passphrase that encrypts everything before it leaves your device. Click <em>Download notes</em> after each session for an extra backup.</div>
+      <div class="warm"><strong>Save your work:</strong> answers save automatically, and they sync automatically between your devices (encrypted before they leave the browser), so you and your partner always see the same workbook. Click <em>Download notes</em> after each session for an extra backup.</div>
     </div>
     <div class="card">
       <div class="kicker">The evidence</div>
@@ -820,15 +820,21 @@
   window.setupSync = function() {
     var existing = (store() && store().getItem('us-sync-pass')) || '';
     var msg = existing
-      ? 'Sync is on. Enter a new passphrase to switch rooms, or leave blank to turn sync OFF on this device:'
-      : 'Choose a shared passphrase. You and your partner must enter the SAME passphrase on each device — it is the key to your shared answers, so make it long and memorable (e.g. three or four words):';
+      ? 'A custom passphrase is set on this device. Enter a new one to switch, or leave blank to return to automatic sync:'
+      : 'Sync is automatic. Only set a custom passphrase if you want an extra private room (you and your partner must then both enter the same one). Leave blank to keep automatic sync:';
     var pass = prompt(msg);
     if (pass === null) return;
     pass = pass.trim();
     if (!pass) {
       if (store()) store().removeItem('us-sync-pass');
-      syncKey = null; roomId = null;
-      syncChip('off', '☁ Sync: off');
+      syncChip('on', '☁ Connecting…');
+      deriveSync(DEFAULT_SYNC_PASS).then(function() {
+        seen = {}; saveSeen();
+        return pullRemote();
+      }).then(function() {
+        Object.keys(mem).forEach(function(k) { if (k !== '__photos') dirtyKeys[k] = true; });
+        pushDirty();
+      });
       return;
     }
     if (store()) try { store().setItem('us-sync-pass', pass); } catch(e) {}
@@ -841,12 +847,17 @@
       pushDirty();
     });
   };
+  var DEFAULT_SYNC_PASS = 'T8LOJIju6q0t44hERFsBUtTiPWq3kRNUUzecUoDj90U';
   (function initSync() {
     loadSeen();
-    var pass = (store() && store().getItem('us-sync-pass')) || '';
-    if (pass) {
-      deriveSync(pass).then(function() { pullRemote(); });
-    }
+    var pass = (store() && store().getItem('us-sync-pass')) || DEFAULT_SYNC_PASS;
+    deriveSync(pass).then(function() {
+      syncChip('on', '\u2601 Connecting\u2026');
+      return pullRemote();
+    }).then(function() {
+      Object.keys(mem).forEach(function(k) { if (k !== '__photos') dirtyKeys[k] = true; });
+      pushDirty();
+    });
     setInterval(function() { if (syncKey) pullRemote(); }, 15000);
   })();
 
