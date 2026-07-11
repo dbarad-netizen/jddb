@@ -24,14 +24,25 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 800,
+        max_tokens: 2000,
         system,
         messages: messages.slice(-16)
       })
     });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: (data.error && data.error.message) || 'Claude API error' });
-    return res.status(200).json({ reply: (data.content && data.content[0] && data.content[0].text) || '' });
+    const reply = (data.content || [])
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
+      .trim();
+    if (!reply) {
+      return res.status(502).json({
+        error: 'Empty reply from model (stop_reason: ' + data.stop_reason + ', blocks: ' +
+               (data.content || []).map((b) => b.type).join(',') + ')'
+      });
+    }
+    return res.status(200).json({ reply });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach the Claude API: ' + e.message });
   }
