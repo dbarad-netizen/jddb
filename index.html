@@ -190,6 +190,18 @@
   .coachnote { text-align: center; font-size: .72rem; color: var(--soft); padding: 0 10px 10px; font-family: -apple-system, sans-serif; }
   @media print { #coachpanel { display: none !important; } }
 
+
+  .donebtn { margin-top: 6px; font-family: -apple-system, sans-serif; font-size: .75rem;
+    padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: #fffdfa; color: var(--sage); cursor: pointer; }
+  .donebtn.done { background: var(--sage-soft); border-color: var(--sage); }
+  textarea[data-hidden="1"] { background: repeating-linear-gradient(45deg, #f7f3ec, #f7f3ec 8px, #f3ede4 8px, #f3ede4 16px); }
+  .identbar { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; margin: 12px 0; text-align: center; font-size: .95rem; }
+  .identbar button { font-family: inherit; margin: 8px 4px 0; padding: 8px 14px;
+    border-radius: 20px; border: 1px solid var(--border); background: #fffdfa; cursor: pointer; }
+  .identbar button:hover { border-color: var(--accent); color: var(--accent); }
+
   @media print {
     nav, .toolbar, .pagenav, .savestate { display: none; }
     .session { display: block !important; page-break-after: always; }
@@ -209,12 +221,14 @@
     <input id="nameA" placeholder="Partner 1 name" value="David">
     <input id="nameB" placeholder="Partner 2 name" value="Julie">
   </div>
+  <div id="identbar" class="identbar" style="display:none"></div>
   <div class="toolbar">
     <button class="primary" onclick="saveAll(true)">Save our answers</button>
     <button onclick="exportNotes()">Download notes (.txt)</button>
     <button onclick="toggleCoach()">✦ AI Coach</button>
     <button onclick="window.print()">Print</button>
     <button id="syncchip" data-state="off" onclick="setupSync()">☁ Sync</button>
+    <button id="identchip" onclick="showIdentBar()">👤 Who am I</button>
   </div>
   <div class="savestate" id="savestate"></div>
 
@@ -554,7 +568,7 @@
     updateNames();
   }
   window.saveAll = function(announce) {
-    document.querySelectorAll('textarea[data-k]').forEach(function(t){ mem[t.dataset.k] = t.value; });
+    document.querySelectorAll('textarea[data-k]').forEach(function(t){ if (t.dataset.hidden === '1' || t.readOnly) return; mem[t.dataset.k] = t.value; });
     mem.__nameA = document.getElementById('nameA').value;
     mem.__nameB = document.getElementById('nameB').value;
     var s = store(), el = document.getElementById('savestate');
@@ -570,6 +584,7 @@
     var b = document.getElementById('nameB').value.trim() || 'Partner 2';
     document.querySelectorAll('.lblA').forEach(function(l){ l.textContent = a; });
     document.querySelectorAll('.lblB').forEach(function(l){ l.textContent = b; });
+    if (typeof applyPrivacy === 'function') { try { applyPrivacy(); } catch(e) {} }
   }
   window.go = function(n) {
     document.querySelectorAll('.session').forEach(function(sec){
@@ -671,6 +686,110 @@
     e.target.value = '';
   });
 
+
+  // ----- private drafts / mutual reveal -----
+  function getIdent() { return (store() && store().getItem('us-ident')) || ''; }
+  function dualPrompts() {
+    var out = [];
+    document.querySelectorAll('.prompt').forEach(function(p){
+      var aEl = p.querySelector('.answers .a textarea[data-k]');
+      var bEl = p.querySelector('.answers .b textarea[data-k]');
+      if (aEl && bEl) out.push({ aEl: aEl, bEl: bEl, base: aEl.dataset.k.slice(0, -1) });
+    });
+    return out;
+  }
+  function ensureDoneButtons() {
+    dualPrompts().forEach(function(d) {
+      [['a', d.aEl], ['b', d.bEl]].forEach(function(pair) {
+        var wrap = pair[1].parentElement;
+        if (!wrap.querySelector('.donebtn')) {
+          var btn = document.createElement('button');
+          btn.className = 'donebtn'; btn.style.display = 'none';
+          btn.dataset.side = pair[0];
+          btn.onclick = function(){ toggleDone(d.base); };
+          wrap.appendChild(btn);
+        }
+      });
+    });
+  }
+  window.toggleDone = function(base) {
+    var ident = getIdent();
+    if (ident !== 'a' && ident !== 'b') return;
+    var key = 'rd_' + base + '_' + ident;
+    mem[key] = mem[key] === '1' ? '' : '1';
+    saveAll(false); queuePush(key); applyPrivacy();
+  };
+  function applyPrivacy() {
+    var ident = getIdent();
+    var a = document.getElementById('nameA').value.trim() || 'Partner 1';
+    var b = document.getElementById('nameB').value.trim() || 'Partner 2';
+    dualPrompts().forEach(function(d) {
+      var els = { a: d.aEl, b: d.bEl };
+      var btns = { a: d.aEl.parentElement.querySelector('.donebtn'),
+                   b: d.bEl.parentElement.querySelector('.donebtn') };
+      if (ident !== 'a' && ident !== 'b') {
+        ['a','b'].forEach(function(s){
+          var el = els[s];
+          if (el.dataset.hidden === '1') { el.dataset.hidden = ''; el.value = mem[el.dataset.k] || ''; }
+          el.readOnly = false; el.placeholder = '';
+          if (btns[s]) btns[s].style.display = 'none';
+        });
+        return;
+      }
+      var other = ident === 'a' ? 'b' : 'a';
+      var meDone = mem['rd_' + d.base + '_' + ident] === '1';
+      var themDone = mem['rd_' + d.base + '_' + other] === '1';
+      var otherName = ident === 'a' ? b : a;
+      var mine = els[ident];
+      mine.dataset.hidden = ''; mine.readOnly = false; mine.placeholder = '';
+      if (document.activeElement !== mine && mine.value !== (mem[mine.dataset.k] || '')) mine.value = mem[mine.dataset.k] || '';
+      var myBtn = btns[ident];
+      if (myBtn) {
+        myBtn.style.display = '';
+        myBtn.classList.toggle('done', meDone);
+        myBtn.textContent = !meDone ? "\u2713 I'm done \u2014 ready to share"
+          : (themDone ? '\u2713 Shared \u2014 you both finished (tap to unshare)'
+                      : '\u23f3 Waiting for ' + otherName + '\u2026 (tap to undo)');
+      }
+      if (btns[other]) btns[other].style.display = 'none';
+      var theirs = els[other];
+      theirs.readOnly = true;
+      if (meDone && themDone) {
+        theirs.dataset.hidden = '';
+        theirs.value = mem[theirs.dataset.k] || '';
+        theirs.placeholder = '';
+      } else {
+        theirs.dataset.hidden = '1';
+        theirs.value = '';
+        theirs.placeholder = '\ud83d\udd12 ' + otherName + "'s answer stays hidden until you both tap \"I'm done\"";
+      }
+    });
+    var chip = document.getElementById('identchip');
+    if (chip) chip.textContent = ident === 'a' ? '\ud83d\udc64 ' + a : ident === 'b' ? '\ud83d\udc64 ' + b : '\ud83d\udc65 Choose who I am';
+  }
+  function buildIdentBar() {
+    var a = document.getElementById('nameA').value.trim() || 'Partner 1';
+    var b = document.getElementById('nameB').value.trim() || 'Partner 2';
+    var bar = document.getElementById('identbar');
+    if (!bar) return;
+    bar.innerHTML = '<div><strong>Who is using this device?</strong><br>Answers to shared questions stay private until you both mark them done \u2014 then they reveal together.</div>' +
+      "<button onclick=\"setIdent('a')\">I'm " + a + '</button>' +
+      "<button onclick=\"setIdent('b')\">I'm " + b + '</button>' +
+      "<button onclick=\"setIdent('both')\">We're sharing one screen</button>";
+    bar.style.display = getIdent() ? 'none' : '';
+  }
+  window.setIdent = function(v) {
+    if (store()) try { store().setItem('us-ident', v); } catch(e) {}
+    document.getElementById('identbar').style.display = 'none';
+    applyPrivacy();
+  };
+  window.showIdentBar = function() {
+    buildIdentBar();
+    var bar = document.getElementById('identbar');
+    bar.style.display = '';
+    bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   // ----- encrypted cloud sync (Supabase) -----
   var SUPA_URL = 'https://xazmwpozsmbrqoulizyn.supabase.co';
   var SUPA_KEY = 'sb_publishable_nxpCXX6gQ8ZOWjFGdgFi3A_hcfOxoSY';
@@ -764,14 +883,14 @@
             var el = document.querySelector('textarea[data-k="' + row.key + '"]');
             if (el && document.activeElement === el) return; // don't clobber active typing
             mem[row.key] = text;
-            if (el) el.value = text;
+            if (el && el.dataset.hidden !== '1' && !el.readOnly) el.value = text;
             if (row.key === '__nameA') { document.getElementById('nameA').value = text; updateNames(); }
             if (row.key === '__nameB') { document.getElementById('nameB').value = text; updateNames(); }
             applied++;
           }).catch(function(){ /* different passphrase used at some point; skip */ });
         })).then(function() {
           saveSeen();
-          if (applied) { saveAll(false); renderPhotos(); }
+          if (applied) { saveAll(false); renderPhotos(); applyPrivacy(); }
           syncChip('on', '☁ Synced');
         });
       }).catch(function(){ syncChip('err', '☁ Offline'); });
@@ -895,6 +1014,9 @@
   loadAll();
   migrateLegacyPhotos();
   renderPhotos();
+  ensureDoneButtons();
+  buildIdentBar();
+  applyPrivacy();
 })();
 </script>
 </body>
